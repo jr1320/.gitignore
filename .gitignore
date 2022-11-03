@@ -8,6 +8,10 @@
 # User-specific files
 .Ruserdata
 
+.dbSNP-144.gz
+.dbSNP-151.gz
+.dbSNP155.gz
+
 # Example code in package build process
 *-Ex.R
 
