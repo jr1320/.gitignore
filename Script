@@ -1,0 +1,15 @@
+setwd ("/rds/general/user/jr1320/projects/neurogenomics-lab/live/Projects/Nonbiallelic_SNPs/R")
+
+install.packages("R.utils")
+library(R.Utils)
+
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("MungeSumstats")
+
+library(readr)
+install.packages("vcfR")
+library(vcfR)
+
+library(BSgenome)
