@@ -332,15 +332,27 @@ path<- ("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projec
 vcf<- VariantAnnotation:: readVcf(path,"hg19")
 print("Read-in as VCF")
 #Specifying first 200 lines of VCF:
-vcf <- vcf[1:200, ]
+vcf1 <- vcf[1:2000, ]
 
 vcfDF<- vcf2df(vcf = vcf)
 
 #Info on dbSNP structure:
 print(names(vcfDF))
-
 print(vcfDF)
 
 #No. positions:
 SNP_count<- length(unique(vcfDF$ID))
 print(SNP_count)
+
+#Identifying INDELs:
+vcfDF[,indel:=ifelse(start==end,FALSE,TRUE)]
+INDELs <- vcfDF[indel==TRUE,]
+
+#Non-biallelic:
+##group by: ID, start, chr, end, rsID 
+
+##dplyr::group_by(vcfDF,"ID","start","end", "chr",add = FALSE)
+
+##print(filter(vcfDF,math_marks>40 & eng_marks<75))
+summary(vcfDF$chr)
+
