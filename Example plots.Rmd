@@ -1,0 +1,266 @@
+---
+title: "Example results plot"
+output: html_document
+date: "2023-02-09"
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(cowplot)
+library(data.table)
+library(wesanderson)
+library(gridExtra)
+library(RColorBrewer)
+library(forcats)
+```
+
+## Overview of dbSNP database:
+
+#Total number & genomic coverage of SNPs/INDELs:
+
+```{r}
+#SNP_NO & INDEL_NO for dbSNP-144/151/155:
+
+SNP_NO <- readRDS("./dbSNP-144_data/SNP_NO.rds")
+INDEL_NO <- readRDS("./dbSNP-144_data/INDEL_NO.rds")
+MNV_NO <- readRDS("./dbSNP-144_data/MNV_NO.rds")
+
+#SNP_POS & INDEL_POS for dbSNP-144/151/155:
+SNP_POS <- readRDS("./example_data/SNP_POS.rds")
+INDEL_POS <- readRDS("./example_data/INDEL_POS.rds")
+MNV_POS <- readRDS("./dbSNP-144_data/MNV_POS.rds")
+
+
+#STEP ONE:
+sep_INDEL_POS <- strsplit(INDEL_POS, ":")
+
+#STEP TWO:
+INDEL_chr <- lapply(sep_INDEL_POS, `[[`, 1)
+INDEL_strtend <- lapply(sep_INDEL_POS, `[[`, 2)
+
+
+#STEP ONE:
+sep_SNP_POS <- strsplit(SNP_POS, ":")
+
+#STEP TWO:
+SNP_chr <- lapply(sep_SNP_POS, `[[`, 1)
+SNP_strtend <- lapply(sep_SNP_POS, `[[`, 2)
+
+
+#STEP ONE:
+sep_MNV_POS <- strsplit(MNV_POS, ":")
+
+#STEP TWO:
+MNV_chr <- lapply(sep_MNV_POS, `[[`, 1)
+MNV_strtend <- lapply(sep_MNV_POS, `[[`, 2)
+
+chr_table <- data.frame(INDEL_chr,SNP_chr,MNV_chr)
+
+no_table <- data.table(SNP_NO,INDEL_NO,MNV_NO)
+
+print(no_table)
+
+
+```
+
+```{r}
+data <- data.frame(Variants=c(SNP_NO,INDEL_NO,MNV_NO)/1000000)
+var <- c("SNP","INDEL","MNV") 
+data <- cbind(var,data)
+```
+
+#Total number of SNPs/INDELs/MNVs:
+
+```{r}
+pal=c(wesanderson::wes_palette("FantasticFox1"),
+                                   wesanderson::wes_palette("FantasticFox1")[1])
+SNP_NO <- readRDS("./dbSNP-151_data/SNP_NO.rds")
+INDEL_NO <- readRDS("./dbSNP-151_data/INDEL_NO.rds")
+MNV_NO <- readRDS("./dbSNP-151_data/MNV_NO.rds")
+data <- data.frame(Variants=c(SNP_NO,INDEL_NO,MNV_NO)/1000000)
+var <- c("SNP","INDEL","MNV") 
+data <- cbind(var,data)
+
+ggplot(data=summ_bind,
+       aes(x=fct_inorder(var), y=Variants, fill=build)) +
+  geom_bar(stat="identity",position = "dodge") +
+  ggtitle("Summary of Variant types")+
+    scale_fill_brewer(palette = "Paired")+
+   labs(y= "Variant count/1e+6", x = "Variant type", fill="dbSNP Build") +
+  theme_cowplot()+
+   theme(plot.title = element_text(hjust = 0.5))+
+  theme(axis.text = element_text(size=9))
+```
+
+#SNP distribution for MNVs:
+
+```{r}
+pal=c(wesanderson::wes_palette("FantasticFox1"),
+                                   wesanderson::wes_palette("FantasticFox1")[1])                                 
+ggplot(data=comb_chr[1:25],
+       aes(x=fct_inorder(as.character(chr)), y=as.numeric(rec_count))) + 
+       geom_bar(aes(fill=group),stat="identity") +
+  ggtitle("Distribution per chromosome MNV")+
+  labs(y= "Variant count /1000", x = "Chromosome", fill="Chromosome") +
+  theme_cowplot()+
+  scale_fill_brewer(palette = "Paired")+
+   theme(plot.title = element_text(hjust = 0.5))+
+  theme(axis.text = element_text(size=9))
+
+```
+
+#SNP density for MNVs:
+
+```{r}
+ggplot(data=comb_chr[1:25],
+       aes(x=fct_inorder(as.character(chr)), y=density)) + 
+       geom_bar(aes(fill=group),stat="identity",position = "dodge") +
+  ggtitle("MNV density dbSNP-150:")+
+  labs(y= "SNP density/ 100K NT", x = "Chromosomes" , fill="Chromosome") +
+  theme_cowplot()+
+  scale_fill_brewer(palette = "Paired")+ 
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme(axis.text = element_text(size=9))
+
+```
+
+#SNP density for dbSNP-144:
+
+```{r}
+ggplot(data=comb_chr[26:50,],
+       aes(x=fct_inorder(as.character(chr)), y=density)) + 
+       geom_bar(aes(fill=group),stat="identity",position = "dodge") +
+  ggtitle("SNP density dbSNP-144:")+
+  labs(y= "SNP density/ 100K NT", x = "Chromosomes" , fill="Chromosome") +
+  theme_cowplot()+
+   theme(plot.title = element_text(hjust = 0.5))+
+  scale_fill_brewer(palette = "Paired")+
+  theme(axis.text = element_text(size=9))
+```
+
+#INDEL density for dbSNP-144:
+
+```{r}
+ggplot(data=comb_chr[51:75,],
+       aes(x=fct_inorder(as.character(chr)), y=density)) + 
+       geom_bar(aes(fill=group),stat="identity",position = "dodge") +
+  ggtitle("INDEL density dbSNP-150:")+
+  labs(y= "INDEL density/ 100K NT", x = "Chromosomes" , fill="Chromosome") +
+  theme_cowplot()+
+   theme(plot.title = element_text(hjust = 0.5))+
+  scale_fill_brewer(palette = "Paired")+
+  theme(axis.text = element_text(size=9))
+```
+
+#Comnparative density between SNPs & MNVs dbSNP-144:
+
+```{r}
+ggplot(data=comb_chr,
+       aes(x=factor(forcats::fct_inorder(as.character(chr))), y=density)) + 
+       geom_bar(aes(fill=group), stat="identity",position = "dodge") +
+  ggtitle("SNP density dbSNP-150:")+
+  labs(y= "log10 SNP density/100K NT ", x = "Chromosomes" , fill="Type") +
+    theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))+
+  scale_y_log10()+
+  scale_fill_brewer(palette = "Paired" )+
+  theme(axis.text = element_text(size=9))
+```
+
+#Data for biallelic vs non-biallelic SNPs:
+
+```{r}
+ggplot(data=comb_bi_snps,
+       aes(x=factor(forcats::fct_inorder(as.character(chr))), y=density)) + 
+       geom_bar(aes(fill=group), stat="identity") +
+  ggtitle("SNP density dbSNP-150:")+
+  labs(y= "SNP density/100K NT ", x = "Chromosomes" , fill="Type") +
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))+
+  scale_fill_brewer(palette = "Paired")+
+  theme(axis.text = element_text(size=9))
+```
+
+# 
+
+```{r}
+dbSNP_summ
+
+```
+
+```{r}
+ggplot(data=comb_bi_snps2,
+       aes(x=factor(forcats::fct_inorder(as.character(chr))), y=density, fill=build)) + 
+       geom_bar(aes(fill=group), stat="identity") +
+  ggtitle("SNP density dbSNP-144:")+
+  labs(y= "SNP density/100K NT ", x = "Chromosomes" , fill="Type") +
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))+
+  scale_fill_brewer(palette = "Paired")+
+  theme(axis.text = element_text(size=9))
+```
+
+```{r}
+ggplot(data=comb_bi_snps3,
+       aes(x=factor(forcats::fct_inorder(as.character(chr))), y=density, fill=build)) + 
+       geom_bar(aes(fill=group), stat="identity") +
+  ggtitle("SNP density dbSNP-151:")+
+  labs(y= "SNP density/100K NT ", x = "Chromosomes" , fill="Type") +
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))+
+  scale_fill_brewer(palette = "Paired")+
+  theme(axis.text = element_text(size=9))
+```
+
+```{r}
+ggplot(data=comb_snps_151,
+       aes(x=factor(forcats::fct_inorder(as.character(chr))), y=rec_count, fill=build)) + 
+       geom_bar(aes(fill=group), stat="identity") +
+  ggtitle("SNP density dbSNP-151:")+
+  labs(y= "SNP density/100K NT ", x = "Chromosomes" , fill="Type") +
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))+
+  scale_fill_brewer(palette = "Paired")+
+  theme(axis.text = element_text(size=9))
+```
+
+```{r}
+ggplot(data=snps_all,
+       aes(x= Build, y=rec_count, fill=Build)) + 
+       geom_bar(aes(fill=names), stat="identity") +
+  ggtitle("Proportion of non-biallelic SNPs per dbSNP build:")+
+  labs(y= "SNP count/100K NT ", x = "Build" , fill="Type") +
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))+
+  scale_fill_brewer(palette = "Paired") 
+
+
+
+```
+
+```{r}
+res
+```
+
+```{r}
+ggplot(data=summ_bind,
+       aes(x=fct_inorder(var), y=Variants, fill=build)) +
+  geom_bar(stat="identity",position = "dodge") +
+  ggtitle("Summary of Variant types")+
+    scale_fill_brewer(palette = "Paired")+
+   labs(y= "Variant count/1e+6", x = "Variant type", fill="dbSNP Build") +
+  theme_cowplot()+
+   theme(plot.title = element_text(hjust = 0.5))+
+  theme(axis.text = element_text(size=9))
+```
+```{r}
+ggplot(data=res_table, 
+       aes(x=build, y=as.numeric(prop)))+
+  geom_point(colour= 'Black')+ 
+  geom_smooth()+
+  scale_fill_brewer(palette = "Paired")+
+   labs(y= "Proportion/ %", x = "Build", fill="dbSNP Build") +
+  theme_cowplot()+
+   theme(plot.title = element_text(hjust = 0.5))+
+  theme(axis.text = element_text(size=9))
+```
