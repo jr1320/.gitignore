@@ -327,20 +327,160 @@ drop_duplicate_rows <- function(dt,
 }
 
 
-#Loading dbSNP data and converting to data.frame:
-path<- ("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/dbsnp_builds/dbSNP-144/dbSNP-144.gz")
+#Read-in VCF:
+path <-(path)
 vcf<- VariantAnnotation:: readVcf(path,"hg19")
-print("Read-in as VCF")
-#Specifying first 200 lines of VCF:
-vcf <- vcf[1:200, ]
 
-vcfDF<- vcf2df(vcf = vcf)
 
-#Info on dbSNP structure:
-print(names(vcfDF))
+# default start and end:
+increment <- 1200000
+strt1 <- 1
+end1 <-  0 + increment
 
-print(vcfDF)
+# Calculate the number of iterations
+iterations <- ceiling(nrow(vcf) / increment)
 
-#No. positions:
-SNP_count<- length(unique(vcfDF$ID))
-print(SNP_count)
+
+#Setting objects to 0
+SNP_NO <- 0
+INDEL_NO <- 0
+MNV_NO <- 0
+non_bi_snps_NO <- 0
+bi_snps_NO <- 0
+
+bi_snps_POS <- NULL
+INDEL_POS<- NULL
+non_bi_snps_POS <- NULL
+SNP_POS <- NULL
+MNV_POS <- NULL
+
+INDEL_MA <- 0
+SNP_MA <- 0
+MNV_MA <- 0
+non_bi_snps_MA <- 0
+bi_snps_MA <- 0
+
+
+
+# Loop through the data.frame in chunks
+
+while (strt1<nrow(vcf)){
+  
+  chunk <- vcf[strt1:end1,]
+  
+  chunk <- vcf2df(chunk,unlist_cols = FALSE)
+
+  ### ANALYSIS
+  #Create new column for position with chr, start & end:
+  chunk[,pos_chr:= paste0(chr,":",start,"-",end)]
+  
+  #Identifying INDELs:
+  INDELS <- (chunk[VC=="DIV"])
+  INDEL_NO <- INDEL_NO + length(unique(INDELS$ID))
+  INDEL_POS <- c(INDEL_POS, unique(INDELS$pos_chr))
+  #Count number that are G5A and/or G5 =TRUE for minor allele frequency 
+  #INDEL_G5 <- INDEL_G5 + nrow(INDELS[G5==TRUE])
+  #INDEL_G5A <-  (INDEL_G5A + nrow(INDELS[G5A==TRUE]))
+  #INDEL_MA <- c(INDEL_G5,INDEL_G5A)
+  remove(INDELS)
+  
+  #Identifying SNPs:
+  SNPs <- (chunk[VC=="SNV"])
+  SNP_NO <- SNP_NO + length(unique(SNPs$ID))
+  SNP_POS <- c(SNP_POS, unique(SNPs$pos_chr))
+  #SNP_G5 <- SNP_G5 + nrow(SNPs[G5==TRUE])
+  #SNP_G5A <- SNP_G5A + nrow(SNPs[G5A==TRUE])
+  #SNP_MA <- c(SNP_G5,SNP_G5A)
+  remove(SNPs)
+  
+  #Identifying MNV:
+  MNVs <- (chunk[VC=="MNV"])
+  MNV_NO <- MNV_NO + length(unique(MNVs$ID))
+  MNV_POS <- c(MNV_POS, unique(MNVs$pos_chr)) 
+  #MNV_G5 <- MNV_G5 + nrow(MNVs[G5==TRUE])
+  #MNV_G5A <- MNV_G5A + nrow(MNVs[G5A==TRUE])
+  #MNV_MA <- c(MNV_G5,MNV_G5A)
+  remove(MNVs)
+  
+  #Identifying non-biallelic SNPs:
+  non_bi_snps <- chunk[nchar(ALT)>1 & VC=="SNV",]
+  non_bi_snps_NO <- non_bi_snps_NO + length(unique(non_bi_snps$ID))
+  non_bi_snps_POS <-  c(non_bi_snps_POS, unique(non_bi_snps$pos_chr)) 
+  #non_bi_snps_G5 <- non_bi_snps_G5 + nrow(non_bi_snps[G5==TRUE])
+  #non_bi_snps_G5A <- non_bi_snps_G5A + nrow(non_bi_snps[G5A==TRUE])
+  #non_bi_snps_MA <- c(non_bi_snps_G5,non_bi_snps_G5A)
+  remove(non_bi_snps)
+  
+  #Identifying biallelic SNPs:
+  bi_snps <- chunk[nchar(ALT)==1 & VC=="SNV",]
+  bi_snps_NO <- bi_snps_NO + length(unique(bi_snps$ID))
+  bi_snps_POS <-  c(bi_snps_POS, unique(bi_snps$pos_chr)) 
+  #bi_snps_G5 <- bi_snps_G5 + nrow(bi_snps[G5==TRUE])
+  #bi_snps_G5A <- bi_snps_G5A + nrow(bi_snps[G5A==TRUE])
+  #bi_snps_MA <- c(bi_snps_G5,bi_snps_G5A)
+  remove(bi_snps)
+  
+  
+  # Update the start for the next iteration
+  strt1 <- strt1 + increment
+  end1 <- end1 + increment
+  
+  if(end1>nrow(vcf)){
+    end1 <- nrow(vcf)
+  }
+  
+}
+
+#Remove objects:
+remove(chunk)
+
+
+#Print results:
+print(SNP_NO)
+print(INDEL_NO)
+print(MNV_NO)
+print(non_bi_snps_NO)
+print(bi_snps_NO)
+
+
+### EXPORTING DATA:
+
+
+SNP_NO.rds <- ("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/results/dbSNP-151/SNP_NO.rds")
+saveRDS(SNP_NO, "SNP_NO.rds")
+SNP_POS.rds <- ("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/results/dbSNP-151/SNP_POS.rds")
+saveRDS(SNP_POS, file = "SNP_POS.rds")
+SNP_MA.rds <- ("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/results/dbSNP-151/SNP_MA.rds")
+saveRDS(SNP_MA, file = "SNP_MA.rds")
+
+
+INDEL_NO.rds <-("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/results/dbSNP-151/INDEL_NO.rds")
+saveRDS(INDEL_NO, "INDEL_NO.rds")
+INDEL_POS.rds <- ("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/results/dbSNP-151/INDEL_POS.rds")
+saveRDS(INDEL_POS, "INDEL_POS.rds")
+INDEL_MA.rds <- ("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/results/dbSNP-151/INDEL_MA.rds")
+saveRDS(INDEL_MA, "INDEL_MA.rds")
+
+
+MNV_NO.rds <-("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/results/dbSNP-151/MNV_NO.rds")
+saveRDS(MNV_NO, "MNV_NO.rds")
+MNV_POS.rds <- ("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/results/dbSNP-151/MNV_POS.rds")
+saveRDS(MNV_POS, "MNV_POS.rds")
+MNV_MA.rds <- ("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/results/dbSNP-151/MNV_MA.rds")
+saveRDS(MNV_MA, "MNV_MA.rds")
+
+
+non_bi_snps_NO.rds <- ("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/results/dbSNP-151/non_bi_snps_NO.rds")
+saveRDS(non_bi_snps_NO, "non_bi_snps_NO.rds")
+non_bi_snps_POS.rds <- ("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/results/dbSNP-151/non_bi_snps_POS.rds")
+saveRDS(non_bi_snps_POS, "non_bi_snps_POS.rds")
+non_bi_snps_MA.rds <- ("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/results/dbSNP-151/non_bi_snps_MA.rds")
+saveRDS(non_bi_snps_MA, "non_bi_snps_MA.rds")
+
+
+bi_snps_NO.rds <- ("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/results/dbSNP-151/bi_snps_NO.rds")
+saveRDS(bi_snps_NO, "bi_snps_NO.rds")
+bi_snps_POS.rds <- ("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/results/dbSNP-151/bi_snps_POS.rds")
+saveRDS(bi_snps_POS, "bi_snps_POS.rds")
+bi_snps_MA.rds <- ("/rds/general/user/jr1320/home/../projects/neurogenomics-lab/live/Projects/dbsnp_non_bi_allelic_snps/results/dbSNP-151/bi_snps_MA.rds")
+saveRDS(bi_snps_MA, "bi_snps_MA.rds")
