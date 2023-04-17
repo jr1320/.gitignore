@@ -1,6 +1,5 @@
 #Creating vcf2df fucntion if MSS integrated function causes error:
 #drop_duplicate_rows is commented out as this is causing forderv error.
-
 #Messager function:
 messager <- function(..., v = TRUE) {
   if (v) {
@@ -9,7 +8,7 @@ messager <- function(..., v = TRUE) {
   }
 }
 #vcf2df function:
-vcf2df <- function(vcf, 
+vcf2df <- function(vcf,
                    add_sample_names=TRUE,
                    add_rowranges=TRUE,
                    drop_empty_cols=TRUE,
@@ -20,24 +19,23 @@ vcf2df <- function(vcf,
                    verbose=TRUE) {
   requireNamespace("VariantAnnotation")
   requireNamespace("MatrixGenerics")
-  
-  messager("Converting VCF to data.table.",v=verbose) 
-  #### Expand VCF ####
-  if (methods::is(vcf,"CollapsedVCF")) {
-    messager('Expanding VCF first, so number of rows may increase.',
-             v=verbose)
-    ## Not all VCFs work with this function
-    vcf <- tryCatch({
-      VariantAnnotation::expand(x = vcf)
-    }, error = function(e){message(e); vcf}) 
-    print("vcf expanded. Line 30")
-  }  
+  messager("Converting VCF to data.table.",v=verbose)
+  #### Expand VCF #### 
+  ## if (methods::is(vcf,"CollapsedVCF")) {
+  ##   messager('Expanding VCF first, so number of rows may increase.',
+  ##         v=verbose)
+  ## Not all VCFs work with this function
+  ##   vcf <- tryCatch({
+  ##     VariantAnnotation::expand(x = vcf)
+  ##   }, error = function(e){message(e); vcf})
+  ##    print("vcf expanded. Line 30")
+  ##  }
   #### Automatically determine whether to add sample names ####
   if(is.null(add_sample_names)){
     header <- VariantAnnotation::header(x = vcf)
     samples <- VariantAnnotation::samples(header)
     add_sample_names <- length(samples)!=1
-  } 
+  }
   #### .anncols function ####
   .anncols = function(anncol,headerstring) {
     anncols <- strsplit(sub("Functional annotations: '",'',
@@ -59,8 +57,7 @@ vcf2df <- function(vcf,
     colnames(yy) <- paste("ANN",anncols,sep="_")
     return(yy)
   }
-  print("Line 62")
-  #### convert to data.table #### 
+  #### convert to data.table ####
   t1 <- Sys.time()
   #### Get rowranges only if available ####
   if("rowRanges" %in% methods::slotNames(vcf)){
@@ -71,7 +68,7 @@ vcf2df <- function(vcf,
   df <- data.table::data.table(
     ID = names(gr),
     if(add_rowranges) granges_to_dt(gr = gr) else NULL,
-    DF_to_dt(DF = VariantAnnotation::info(vcf)) 
+    DF_to_dt(DF = VariantAnnotation::info(vcf))
   )
   remove(gr)
   #### Parse ANN column ####
@@ -85,21 +82,22 @@ vcf2df <- function(vcf,
     df <- df[,colnames(df)!="ANN"]
     df <- cbind(df,dfann)
   }
-  ##### Convert geno data ##### 
+  ##### Convert geno data #####
   ## Works better for VCFHeader
   if(methods::is(vcf,"VCFHeader")){
-    tmp <- data.table::as.data.table(VariantAnnotation::geno(vcf), 
+    tmp <- data.table::as.data.table(VariantAnnotation::geno(vcf),
                                      keep.rownames = "name")
-    # tmp <- DF_to_dt(DF = VariantAnnotation::geno(x))    
+    # tmp <- DF_to_dt(DF = VariantAnnotation::geno(x))
   } else {
     ## Works better for VCF
     n <- names(VariantAnnotation::geno(vcf))
     #### Avoid parsing redundant columns ####
-    if("ID" %in% colnames(df)) n <- n[n!="ID"]
+    if("ID" %in% colnames(df))
+      n <- n[n!="ID"]
     tmp <- lapply(n,function(col) {
-      coldat <- VariantAnnotation::geno(vcf)[[col]]  
+      coldat <- VariantAnnotation::geno(vcf)[[col]]
       #### Convert 3D matrix --> 2D ####
-      ## This sometimes happens by accident with 
+      ## This sometimes happens by accident with
       ## VariantAnnotation::writeVcf
       if(length(dim(coldat))==3){
         rn <- rownames(coldat)
@@ -110,58 +108,61 @@ vcf2df <- function(vcf,
           colnames(coldat) <- cn[1]
         } else {
           coldat <- matrix(data = coldat,
-                           nrow = dim(coldat)[1], 
+                           nrow = dim(coldat)[1],
                            ncol = dim(coldat)[2] * dim(coldat)[3])
           rownames(coldat) <- rn
           colnames(coldat) <- cn
-        }  
+        }
       }
       print("Line 120")
       #### Drop empty columns within each matrix ####
       if(isTRUE(drop_empty_cols)){
         for(i in ncol(coldat)){
-          if(all(is.na(coldat[,i])) || 
+          if(all(is.na(coldat[,i])) ||
              all(coldat[,i]==".") ||
              all(coldat[,i]=="")){
             coldat <- coldat[,-i]
           }
         }
-      } 
+      }
       #### Check if empty ####
       if(ncol(coldat)==0 | nrow(coldat)==0){
         return(NULL)
       } else {
         ## keeps colnames unchanged
         data.table::as.data.table(coldat)
-      } 
+      }
     }) ## end lapply
-    
     #### Remove NULL entries ####
     nulls <- unname(unlist(lapply(tmp,is.null)))
-    tmp <- tmp[!nulls]
-    n <- n[!nulls]
-    ## Each element can potentially have >1 column 
-    ncols <- unlist(lapply(tmp,ncol))
-    tmp <- do.call(cbind, tmp)
-    #### Add column names ####
-    if(!is.null(tmp)){
-      if(isTRUE(add_sample_names)){
-        colnames(tmp) = paste(rep(n, times = ncols), 
-                              colnames(tmp),sep = "_") 
-      } else {
-        colnames(tmp) <- rep(n, times = ncols)
-      } 
+    #if you find anyhtin in the geno slot...
+    if(length(tmp)>0){
+      tmp <- tmp[!nulls]
+      n <- n[!nulls]
+      ## Each element can potentially have >1 column
+      ncols <- unlist(lapply(tmp,ncol))
+      tmp <- do.call(cbind, tmp)
+      #### Add column names ####
+      if(!is.null(tmp)){
+        if(isTRUE(add_sample_names)){
+          colnames(tmp) = paste(rep(n, times = ncols),
+                                colnames(tmp),sep = "_")
+        } else {
+          colnames(tmp) <- rep(n, times = ncols)
+        }
+      }
     }
-  } 
-  df <- cbind(df, tmp) 
+  }
+  #if you find anyhtin in the geno slot...
+  if(length(tmp)>0)
+    df <- cbind(df, tmp)
   remove(tmp)
-  
   ## ----- Post-processing ----- ####
   #### Only keep unique rows ####
   #### Remove duplicated columns ####
   if(isTRUE(unique_cols)){
     drop_duplicate_cols(dt = df)
-  } 
+  }
   #### Remove any remaining empty columns #####
   if(isTRUE(drop_empty_cols)){
     remove_empty_cols(sumstats_dt = df,
@@ -169,41 +170,48 @@ vcf2df <- function(vcf,
                       verbose = verbose)
   }
   #### Unlist columns inplace ####
+  not_uniq_cols <- c()
   if(isTRUE(unique_rows) && isFALSE(unlist_cols)){
-    messager("Must set unlist_cols=TRUE to use unique_rows=TRUE.",
-             "Setting unlist_cols=TRUE.",v=verbose)
-    unlist_cols <- TRUE
+    # messager("Not using columns that are lists to check for unique rows",
+    #  v=verbose)
+    not_uniq_cols <- names(df)[ unlist(lapply(df, methods::is,"list")) ]
+    #keep RS
+    not_uniq_cols <- not_uniq_cols[!not_uniq_cols %in% 'RS']
   }
-  if(isTRUE(unlist_cols)){ 
+  if(isTRUE(unlist_cols)){
     unlist_dt(dt = df,
               verbose = verbose)
-  } 
-  #### Remove duplicated rows #### 
+  }
+  #### Remove duplicated rows ####
   if(isTRUE(unique_rows)){
-    # df <- drop_duplicate_rows(dt = df, 
-    # verbose = verbose)
-  }  
+    #first make RS col a single value instead of a list
+    func <- function(x) as.character(paste0(unlist(x),collapse='-')[[1]])
+    df[, RS:= lapply(RS,func),]
+    df[, RS:= as.character(RS),]
+    df <- drop_duplicate_rows(dt = df,
+                              verbose = verbose,
+                              ignore_cols = not_uniq_cols)
+  }
   #### Report ####
   if(verbose) methods::show(round(difftime(Sys.time(),t1),1))
-  messager("VCF data.table contains:",
-           formatC(nrow(df),big.mark = ","),"rows x",
-           formatC(ncol(df),big.mark = ","),"columns.",
-           v=verbose)
+  #messager("VCF data.table contains:",
+  # formatC(nrow(df),big.mark = ","),"rows x",
+  #  formatC(ncol(df),big.mark = ","),"columns.",
+  #  v=verbose)
   return(df)
 }
-
 #granges_to_dt
 granges_to_dt  <- function(gr) {
   if(is.null(gr)) return(gr)
   #### Convert metadata ####
   DF <- GenomicRanges::elementMetadata(gr)
   #### Combine metadata with ranges data ####
-  if( ncol(DF) > 0) { 
+  if( ncol(DF) > 0) {
     meta <- DF_to_dt(DF = DF)
     DT <- data.table::data.table(
-      chr=as.vector(GenomicRanges::seqnames(gr)), 
+      chr=as.vector(GenomicRanges::seqnames(gr)),
       start=GenomicRanges::start(gr),
-      end=GenomicRanges::end(gr), 
+      end=GenomicRanges::end(gr),
       meta)
   } else {
     DT <- data.table::data.table(
@@ -213,14 +221,13 @@ granges_to_dt  <- function(gr) {
   }
   return(DT)
 }
-
 #DF_to_dt:
-DF_to_dt <- function(DF){ 
+DF_to_dt <- function(DF){
   #### Check if DF is empty ####
   # DF <- cbind(DF,dummy=NA)
   if(nrow(DF)==0 | ncol(DF)==0) return(data.table::data.table())
-  m <- mapply(DF, 
-              FUN=function(s){ 
+  m <- mapply(DF,
+              FUN=function(s){
                 # s <- DF[["REF"]]
                 # s <- DF[["ALT"]]
                 # s <- DF[[1]]
@@ -237,32 +244,30 @@ DF_to_dt <- function(DF){
                   s <- as.vector(s)
                 }
                 #### Check if empty ####
-                if(all(is.na(s)) || 
-                   all(s==".") || 
+                if(all(is.na(s)) ||
+                   all(s==".") ||
                    all(s=="")){
                   return(NULL)
                 } else {
                   return(s)
-                } 
-              }) 
+                }
+              })
   data.table::as.data.table(m)
 }
-
 #drop_duplicate_cols:
 drop_duplicate_cols <- function(dt){
   dups <- which(duplicated(names(dt)))
   if(length(dups)>0){
-    messager("Dropping",length(dups),"duplicate column(s).")
-    dt[,  which(duplicated(names(dt))):= NULL] 
-  } 
+    # messager("Dropping",length(dups),"duplicate column(s).")
+    dt[,  which(duplicated(names(dt))):= NULL]
+  }
 }
-
 #remove_empty_cols:
-remove_empty_cols <- function(sumstats_dt, 
+remove_empty_cols <- function(sumstats_dt,
                               sampled_rows=NULL,
                               verbose=TRUE){
   #### Check for empty columns ####
-  messager("Checking for empty columns.",v=verbose)
+  #  messager("Checking for empty columns.",v=verbose)
   empty_cols <- check_empty_cols(
     sumstats_dt = sumstats_dt,
     sampled_rows = sampled_rows,
@@ -270,14 +275,13 @@ remove_empty_cols <- function(sumstats_dt,
   )
   #### Remove empty columns #####
   if(length(empty_cols)>0) {
-    messager("Removing",length(empty_cols),"empty columns.",v=verbose)
-    sumstats_dt[,(names(empty_cols)):=NULL] 
+    # messager("Removing",length(empty_cols),"empty columns.",v=verbose)
+    sumstats_dt[,(names(empty_cols)):=NULL]
   }
-} 
-
+}
 #check_empty_cols:
 check_empty_cols <- function(sumstats_dt,
-                             sampled_rows = NULL, 
+                             sampled_rows = NULL,
                              verbose = TRUE) {
   if (is.null(sampled_rows)) {
     sampled_rows <- nrow(sumstats_dt)
@@ -296,34 +300,35 @@ check_empty_cols <- function(sumstats_dt,
   #sometimes NA values appear, they aren't empty so change these to false
   empty_cols <- ifelse(is.na(empty_cols),FALSE,empty_cols)
   empty_cols <- empty_cols[empty_cols]
-  messager(length(empty_cols), "empty column(s) detected.",
-           v=verbose)
+  # messager(length(empty_cols), "empty column(s) detected.",
+  #      v=verbose)
   return(empty_cols)
 }
-
+print("Line 311")
 #unlist_dt:
 unlist_dt <- function(dt,
                       verbose=TRUE) {
   .SD <- NULL
-  cols <- names(dt)[ unlist(lapply(dt, methods::is,"list")) ]
+  cols <- names(dt)[ unlist(lapply(dt, methods::is,"list")) ] 
   if(length(cols)>0){
-    messager("Unlisting",length(cols),"columns.",v=verbose)
+    # messager("Unlisting",length(cols),"columns.",v=verbose)
     dt[ , (cols) := lapply(.SD,unlist), .SDcols = cols]
-  } 
+  }
 }
-
+print("Line 322")
 #drop_duplicate_rows:
 drop_duplicate_rows <- function(dt,
-                                verbose=TRUE){
+                                verbose=TRUE,
+                                ignore_cols = c('CAF','TOPMED')){
   nrows_old <- nrow(dt)
-  dt <- unique(dt)
+  unique_cols <- colnames(dt)
+  dt <- unique(dt,by=unique_cols[!(unique_cols %in% ignore_cols)])
   nrows_new <- nrow(dt)
   dropped <-  nrows_old-nrows_new
   if(dropped>0){
-    messager("Dropped",formatC(dropped,big.mark = ","),
-             "duplicate rows.",v=verbose)
+    #messager("Dropped",formatC(dropped,big.mark = ","),
+    #"duplicate rows.",v=verbose)
   }
   return(dt)
 }
-
 
